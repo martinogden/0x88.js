@@ -4,7 +4,7 @@
 0x88.js is a JavaScript chess board library. It takes care of:
 
  * Board and piece representation
- * Importing and exporting board states to FEN notation
+ * Importing and exporting board states to [FEN](http://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation) notation
  * Move validation
 
 Basic usage
