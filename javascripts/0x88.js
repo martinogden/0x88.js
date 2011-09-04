@@ -150,6 +150,21 @@ Board.prototype.to_fen = function() {
     return fen.join(' ');
 }
 
+Board.prototype.fen_get_castling = function () {
+    var chars = []
+
+    if (!this.castling) {
+        return '-'
+    }
+    
+    for (var key in this.castling_map) {
+        if (this.castling & this.castling_map[key]) {
+            chars.push(key);
+        }
+    }
+    return chars.join('');
+}
+
 Board.prototype.position_piece = function (piece, index) {
     this.positions[index] = piece;
 }
@@ -210,18 +225,4 @@ Board.prototype.get_piece = function (code) {
     return null;
 }
 
-Board.prototype.fen_get_castling = function () {
-    var chars = []
-
-    if (!this.castling) {
-        return '-'
-    }
-    
-    for (var key in this.castling_map) {
-        if (this.castling & this.castling_map[key]) {
-            chars.push(key);
-        }
-    }
-    return chars.join('');
-}
 
