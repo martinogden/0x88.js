@@ -64,11 +64,11 @@ test('Test Board::has_index', function() {
     equal(board.has_index(0x88), false); // invalid
 });
 
-test('Test Board::get_algebraic_notation', function() {
+test('Test Board::get_san', function() {
     var board = new Board();
 
-    equal(board.get_algebraic_notation(0x11), 'b2');
-    equal(board.get_algebraic_notation(0x77), 'h8');
+    equal(board.get_san(0x11), 'b2');
+    equal(board.get_san(0x77), 'h8');
 });
 
 

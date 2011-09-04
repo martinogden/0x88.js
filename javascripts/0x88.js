@@ -149,7 +149,7 @@ Board.prototype.to_fen = function() {
     fen.push(this.turn === this.WHITE ? 'w' : 'b');
     fen.push(this.fen_get_castling());
     if (this.en_passant) {
-        fen.push(this.get_algebraic_notation(this.en_passant));
+        fen.push(this.get_san(this.en_passant));
     } else {
         fen.push('-');
     }
@@ -196,21 +196,21 @@ Board.prototype.position_piece = function (piece, index) {
  * @return {int} [0-127]
  */
 Board.prototype.get_index = function (row, column) {
-    var an; // algebraic_notation
+    var san; // standard algebraic notation
 
     if (typeof row === "string") {
-        an = row.split('');
-        row = an[1] - 1;
-        column = 'abcdefgh'.indexOf(an[0].toLowerCase())
+        san = row.split('');
+        row = san[1] - 1;
+        column = 'abcdefgh'.indexOf(san[0].toLowerCase())
     }
     return row << 4 | column;
 };
 
 /**
  * @param {int} 0x88 index
- * @return {str} Algebraic notation
+ * @return {str} standard algebraic notation
  */
-Board.prototype.get_algebraic_notation = function (index) {
+Board.prototype.get_san = function (index) {
     var file = (index & 7)
       , rank = (index >> 4) + 1;
 
