@@ -6,11 +6,31 @@ var Board = function (fen) {
     // blank 0x88 array of board positions
     this.positions = new Array(128);
 
+    this.turn = this.WHITE;
+
+    // Castling
+    this.B_00 = Math.pow(2, 0);
+    this.B_000 = Math.pow(2, 1);
+    this.W_00 = Math.pow(2, 2);
+    this.W_000 = Math.pow(2, 3);
+    this.castling = this.B_00 | this.B_000 | this.W_00 | this.W_000
+    this.castling_map = {
+      'K': this.W_00,
+      'Q': this.W_000,
+      'k': this.B_00,
+      'q': this.B_000}
+
+    this.en_passant = null;
+
+    this.half_moves = 0;
+    this.full_moves = 0;
+
     this.offsets = {
         'R': [-1, -16, 1, 16, 0, 0, 0, 0],
         'N': [31, 33, 14, 18, -18, -14, -33, -31],
         'B': [-15, -17, 15, 17],
     }
+
     this.offsets['Q'] = this.offsets['R'].concat(this.offsets['B']);
 
     // Black pieces are lowercase, white pieces uppercase
@@ -29,29 +49,15 @@ var Board = function (fen) {
         Q: 0xA0
     };
 
-    // Castling
-    this.B_00 = Math.pow(2, 0);
-    this.B_000 = Math.pow(2, 1);
-    this.W_00 = Math.pow(2, 2);
-    this.W_000 = Math.pow(2, 3);
-    this.castling = this.B_00 | this.B_000 | this.W_00 | this.W_000
-    this.castling_map = {
-      'K': this.W_00,
-      'Q': this.W_000,
-      'k': this.B_00,
-      'q': this.B_000}
-
-    this.en_passant = false;
-
     if (fen) {
         this.from_fen(fen);
     }
 };
 
 /**
- * Reset board and load game in from .fen file
+ * Reset board and load game in from FEN notation
  *
- * @param {str} .fen string
+ * @param {str} FEN string
  * @todo Add en passant and castling rule parsing
  */
 Board.prototype.from_fen = function (fen) {
@@ -61,6 +67,7 @@ Board.prototype.from_fen = function (fen) {
       , en_passant = parts[3]
       , row = 0, rank, col, bit;
 
+    this.reset();
     // Basic validation
     // var pattern = /[rnbqkbnrp1-8/]{8} [bw] ([kq]{1,4}|-) ([a-g][0-8]|-) [0-50] \d$/i
     if (!parts.length === 6 || !board.length === 8) {
@@ -165,6 +172,15 @@ Board.prototype.fen_get_castling = function () {
     return chars.join('');
 }
 
+Board.prototype.reset = function () {
+    this.positions = new Array(128);
+    this.turn = this.WHITE;
+    this.castling = this.B_00 | this.B_000 | this.W_00 | this.W_000;
+    this.en_passant = null;
+    this.half_moves = 0;
+    this.full_moves = 0;
+}
+
 Board.prototype.position_piece = function (piece, index) {
     this.positions[index] = piece;
 }
@@ -224,5 +240,4 @@ Board.prototype.get_piece = function (code) {
     }
     return null;
 }
-
 

@@ -29,6 +29,17 @@ test('Correctly exports FEN string', function() {
     equal(board.to_fen(), fen);
 });
 
+test('Test Board::reset', function() {
+    var board = new Board(fen)
+    board.reset();
+
+    equal(board.turn, board.WHITE);
+    equal(board.castling, 0x0F);
+    equal(board.en_passant, null);
+    equal(board.half_moves, 0);
+    equal(board.full_moves, 0);
+});
+
 test('Test Board::position_piece', function() {
     var board = new Board()
       , piece = board.pieces['p']
