@@ -26,7 +26,7 @@ var Board = function (fen) {
     this.full_moves = 0;
 
     this.offsets = {
-        'R': [-1, -16, 1, 16, 0, 0, 0, 0],
+        'R': [-1, -16, 1, 16],
         'N': [31, 33, 14, 18, -18, -14, -33, -31],
         'B': [-15, -17, 15, 17],
     }
@@ -336,6 +336,29 @@ Board.prototype.valid_knight_moves = function (index) {
             if (this.get_color(piece) !== this.turn) {
                 moves.push(to);
             }
+        }
+    }
+    return moves;
+}
+
+Board.prototype.valid_sliding_moves = function (index, offsets) {
+    var moves = []
+      , positions = index
+      , direction
+      , piece
+      , to;
+
+    for (var i = 0, l = offsets.length; i < l; i++) {
+        direction = offsets[i];
+        position = index + direction;
+        while (this.has_index(position)) {
+            piece = this.piece_at(position);
+            if (piece && this.get_color(position) === this.turn) {
+                console.log(position);
+                break;
+            }
+            moves.push(position);
+            position += direction;
         }
     }
     return moves;

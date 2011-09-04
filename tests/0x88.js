@@ -1,4 +1,4 @@
-module('Chessboard');
+module('FEN Notation');
 
 var fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 fen = 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 2';
@@ -49,6 +49,8 @@ test('Test Board::position_piece', function() {
     equal(board.positions[index], piece);
 });
 
+module('Internal functions');
+
 test('Test Board::get_index', function() {
     var board = new Board();
 
@@ -92,6 +94,8 @@ test('Test Board::piece_at', function() {
     equal(board.piece_at(0x07), 0x90); // White Rook
 });
 
+module('Move generation');
+
 test('Test Board::valid_pawn_moves', function() {
     var board = new Board(fen);
 
@@ -100,6 +104,7 @@ test('Test Board::valid_pawn_moves', function() {
     equal(board.valid_pawn_moves(0x34).length, 3);
 
     //Black pieces (moving backwards)
+    board.turn = board.BLACK;
     equal(board.valid_pawn_moves(0x43).length, 3);
     equal(board.valid_pawn_moves(0x60).length, 2);
 
@@ -110,5 +115,11 @@ test('Test Board::valid_knight_moves', function() {
 
     // White pieces (moving upwards)
     equal(board.valid_knight_moves(0x01).length, 2);
+});
+
+test('Test Board::valid_sliding_moves', function() {
+    var board = new Board('3k4/8/8/8/3Q4/8/8/8 w - - 0 100');
+    // White pieces (moving upwards)
+    equal(board.valid_sliding_moves(0x33, board.offsets['Q']).length, 27);
 });
 
