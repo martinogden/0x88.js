@@ -221,7 +221,7 @@ Board.prototype.get_san = function (index) {
  * Get color of a piece
  *
  * @param {int} Hex representation of a piece
- * return {int} 0 or 1
+ * return {int} WHITE or BLACK
  */
 Board.prototype.get_color = function (piece) {
     return piece & 0x80;
@@ -231,7 +231,7 @@ Board.prototype.get_color = function (piece) {
  * Get piece name from it's hex represention
  *
  * @param {int}
- * @return {str|null}
+ * @return {str|void}
  */
 Board.prototype.get_piece = function (code) {
     var key, piece;
@@ -250,5 +250,76 @@ Board.prototype.get_piece = function (code) {
  */
 Board.prototype.has_index = function (index) {
     return !Boolean(index & 0x88);
+}
+
+/**
+ * @param {int} Piece 0x88 position
+ * @return {int} Piece hex representation
+ */
+Board.prototype.piece_at = function (index) {
+    if (this.has_index(index)) {
+        return this.positions[index] || null;
+    }
+    return null;
+}
+
+/**
+ * Get string representation of a piece
+ *
+ * @param {int} Hex representation of a piece
+ * @return {str|void}
+ */
+Board.prototype.hex_to_piece = function (hex) {
+    // Convert hex to a power of two <= 32
+    var key = hex & 0x3F
+      , piece = {'1': 'P', '2': 'N', '4': 'K',
+                 '8': 'B', '16': 'R', '32': 'Q'}[key.toString()];
+
+    if (!piece) { 
+        if (hex <= 0x20) {
+            piece = piece.toLowerCase();
+        }
+        return piece;
+    }
+    return null;
+}
+
+/**
+ * @param {int} index of piece
+ * @return {array} List of valid moves
+ * @todo Add promotion and en passant rules
+ */
+Board.prototype.valid_pawn_moves = function (index) {
+    // Are we moving up or down the board (white or black)
+    var direction = this.piece_at(index) & 0x80 ? 16 : -16
+      , forward = index + direction
+      , moves = []
+      , _moves
+      , to
+      , piece;
+
+    // Move a one or two sqaures forward if both are vacant and valid
+    _moves = [forward, forward + direction];
+    for (var i = 0, l = _moves.length; i < l; i++) {
+        to = _moves[i];
+        piece = this.piece_at(to);
+        if (piece) {
+            break;
+        }
+        if (this.has_index(to)) {
+            moves.push(to);
+        }
+    }
+
+    // Take an opposition piece diagonally
+    _moves = [forward - 1, forward + 1];
+    for (var i = 0, l = _moves.length; i < l; i++) {
+        to = _moves[i];
+        piece = this.piece_at(to);
+        if (piece && this.get_color(piece) === this.turn ^ 0x80) {
+            moves.push(to);
+        }
+    }
+    return moves;
 }
 

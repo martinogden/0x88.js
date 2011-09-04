@@ -1,7 +1,7 @@
 module('Chessboard');
 
 var fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-fen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 2';
+fen = 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 2';
 
 test('Correctly imports FEN string and populates board', function() {
     var board = new Board(fen)
@@ -85,4 +85,16 @@ test('Test Board::get_piece', function() {
     equal(board.get_piece(0x20), 'q'); // Black queen
 });
 
+test('Test Board::piece_at', function() {
+    var board = new Board(fen);
 
+    equal(board.piece_at(0x76), 0x02); // Black Rook
+    equal(board.piece_at(0x07), 0x90); // White Rook
+});
+
+test('Test Board::valid_pawn_moves', function() {
+    var board = new Board(fen);
+
+    equal(board.valid_pawn_moves(0x10).length, 2);
+    equal(board.valid_pawn_moves(0x34).length, 3);
+});
