@@ -56,6 +56,14 @@ test('Test Board::get_index', function() {
     equal(board.get_index('g7'), 0x66); // h8
 });
 
+test('Test Board::has_index', function() {
+    var board = new Board();
+
+    equal(board.has_index(0x00), true); // a1
+    equal(board.has_index(0x77), true); // h8
+    equal(board.has_index(0x88), false); // invalid
+});
+
 test('Test Board::get_algebraic_notation', function() {
     var board = new Board();
 

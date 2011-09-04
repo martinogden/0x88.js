@@ -172,6 +172,9 @@ Board.prototype.fen_get_castling = function () {
     return chars.join('');
 }
 
+/**
+ * @return {void}
+ */
 Board.prototype.reset = function () {
     this.positions = new Array(128);
     this.turn = this.WHITE;
@@ -239,5 +242,13 @@ Board.prototype.get_piece = function (code) {
         }
     }
     return null;
+}
+
+/**
+ * @param {int} Possible board position index
+ * @return {bool}
+ */
+Board.prototype.has_index = function (index) {
+    return !Boolean(index & 0x88);
 }
 
