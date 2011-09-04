@@ -95,6 +95,20 @@ test('Test Board::piece_at', function() {
 test('Test Board::valid_pawn_moves', function() {
     var board = new Board(fen);
 
+    // White pieces (moving upwards)
     equal(board.valid_pawn_moves(0x10).length, 2);
     equal(board.valid_pawn_moves(0x34).length, 3);
+
+    //Black pieces (moving backwards)
+    equal(board.valid_pawn_moves(0x43).length, 3);
+    equal(board.valid_pawn_moves(0x60).length, 2);
+
 });
+
+test('Test Board::valid_knight_moves', function() {
+    var board = new Board(fen);
+
+    // White pieces (moving upwards)
+    equal(board.valid_knight_moves(0x01).length, 2);
+});
+

@@ -323,3 +323,21 @@ Board.prototype.valid_pawn_moves = function (index) {
     return moves;
 }
 
+Board.prototype.valid_knight_moves = function (index) {
+    var offsets = this.offsets['N']
+      , moves = []
+      , piece
+      , to;
+
+    for (var i = 0, l = offsets.length; i < l; i++) {
+        to = index + offsets[i];
+        if (this.has_index(to)) {
+            piece = this.piece_at(to);
+            if (this.get_color(piece) !== this.turn) {
+                moves.push(to);
+            }
+        }
+    }
+    return moves;
+}
+
