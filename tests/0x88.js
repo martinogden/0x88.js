@@ -118,8 +118,21 @@ test('Test Board::valid_knight_moves', function() {
 });
 
 test('Test Board::valid_sliding_moves', function() {
-    var board = new Board('3k4/8/8/8/3Q4/8/8/8 w - - 0 100');
+    // We'll test the usage with a queen move as an example
+    var board = new Board('2k5/8/8/2b5/3QB2K/8/8/6R1 w - - 0 100');
     // White pieces (moving upwards)
-    equal(board.valid_sliding_moves(0x33, board.offsets['Q']).length, 27);
+    equal(board.valid_sliding_moves(0x33, board.offsets['Q']).length, 20);
+});
+
+test('Test Board::valid_rook_moves', function() {
+    var board = new Board('r6r/1k6/8/8/3K4/8/8/R6R w - - 0 100');
+    // White pieces (moving upwards)
+    equal(board.valid_rook_moves(0x77).length, 13);
+});
+
+test('Test Board::valid_bishop_moves', function() {
+    var board = new Board('r6r/2k5/8/3B4/3K4/8/8/8 w - - 0 100');
+    // White pieces (moving upwards)
+    equal(board.valid_bishop_moves(0x43).length, 13);
 });
 

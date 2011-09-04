@@ -30,7 +30,6 @@ var Board = function (fen) {
         'N': [31, 33, 14, 18, -18, -14, -33, -31],
         'B': [-15, -17, 15, 17],
     }
-
     this.offsets['Q'] = this.offsets['R'].concat(this.offsets['B']);
 
     // Black pieces are lowercase, white pieces uppercase
@@ -113,16 +112,18 @@ Board.prototype.to_fen = function() {
       , rows = []
       , positions = this.positions.slice().reverse()
       , empty = 0
-      , positions_length = positions.length
       , piece = null
       , line_break;
 
-    for (var p = 8; p < positions_length; p++) {
+    for (var p = 8, l = positions.length; p < l; p++) {
         piece = this.get_piece(positions[p]);
-        line_break = (p > 8 && p % 16 === 0);
+        line_break = (p % 16 === 0 || p === 127);
 
         // Add blank squares count
-        if (!!empty && (line_break || piece)) {
+        if (!!empty && (piece || line_break)) {
+            if (p === 127) {
+                empty++;
+            }
             row.push(empty);
             empty = 0;
         }
@@ -133,11 +134,11 @@ Board.prototype.to_fen = function() {
 
         // Empty cell - increment empty count
         } else if (!line_break) {
-            empty += 1;
+            empty++;
         }
 
         // Are we at EOL?
-        if (line_break || p === positions_length - 1) {
+        if (line_break || p === l - 1) {
             // Row is reversed, flip it back around
             rows.push(row.reverse().join(''));
             row = [];
@@ -316,7 +317,7 @@ Board.prototype.valid_pawn_moves = function (index) {
     for (var i = 0, l = _moves.length; i < l; i++) {
         to = _moves[i];
         piece = this.piece_at(to);
-        if (piece && this.get_color(piece) === this.turn ^ 0x80) {
+        if (piece && this.get_color(piece) === (this.turn ^ 0x80)) {
             moves.push(to);
         }
     }
@@ -333,7 +334,7 @@ Board.prototype.valid_knight_moves = function (index) {
         to = index + offsets[i];
         if (this.has_index(to)) {
             piece = this.piece_at(to);
-            if (this.get_color(piece) !== this.turn) {
+           if (this.get_color(piece) === (this.turn ^ 0x80)) {
                 moves.push(to);
             }
         }
@@ -343,24 +344,38 @@ Board.prototype.valid_knight_moves = function (index) {
 
 Board.prototype.valid_sliding_moves = function (index, offsets) {
     var moves = []
-      , positions = index
       , direction
       , piece
       , to;
 
+    // console.log(this.to_fen());
     for (var i = 0, l = offsets.length; i < l; i++) {
         direction = offsets[i];
-        position = index + direction;
-        while (this.has_index(position)) {
-            piece = this.piece_at(position);
-            if (piece && this.get_color(position) === this.turn) {
-                console.log(position);
+        to = index + direction;
+        while (this.has_index(to)) {
+            piece = this.piece_at(to);
+            if (piece) {
+                if (this.get_color(piece) === (this.turn ^ 0x80)) {
+                    moves.push(to);
+                }
                 break;
             }
-            moves.push(position);
-            position += direction;
+            moves.push(to);
+            to += direction;
         }
     }
     return moves;
+}
+
+Board.prototype.valid_rook_moves = function (index) {
+    return this.valid_sliding_moves(index, this.offsets['R']);
+}
+
+Board.prototype.valid_bishop_moves = function (index) {
+    return this.valid_sliding_moves(index, this.offsets['B']);
+}
+
+Board.prototype.valid_queep_moves = function (index) {
+    return this.valid_sliding_moves(index, this.offsets['Q']);
 }
 
