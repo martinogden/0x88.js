@@ -324,6 +324,10 @@ Board.prototype.valid_pawn_moves = function (index) {
     return moves;
 }
 
+/**
+ * @param {int} index of piece
+ * @return {array} List of valid moves
+ */
 Board.prototype.valid_knight_moves = function (index) {
     var offsets = this.offsets['N']
       , moves = []
@@ -342,6 +346,17 @@ Board.prototype.valid_knight_moves = function (index) {
     return moves;
 }
 
+/**
+ * Generate a list of positions where a sliding piece can move to.
+ *
+ *  - Includes positions where opponents piece is taken
+ *  - Doesn't include positions containing players own pieces
+ *  - Doesn't consider check situations
+ *
+ * @param {int} index of piece
+ * @param {array} list of offsets for move generation, i.e. directions
+ * @return {array} List of valid moves
+ */
 Board.prototype.valid_sliding_moves = function (index, offsets) {
     var moves = []
       , direction
@@ -367,14 +382,26 @@ Board.prototype.valid_sliding_moves = function (index, offsets) {
     return moves;
 }
 
+/**
+ * @param {int} index of piece
+ * @return {array} List of valid moves
+ */
 Board.prototype.valid_rook_moves = function (index) {
     return this.valid_sliding_moves(index, this.offsets['R']);
 }
 
+/**
+ * @param {int} index of piece
+ * @return {array} List of valid moves
+ */
 Board.prototype.valid_bishop_moves = function (index) {
     return this.valid_sliding_moves(index, this.offsets['B']);
 }
 
+/**
+ * @param {int} index of piece
+ * @return {array} List of valid moves
+ */
 Board.prototype.valid_queep_moves = function (index) {
     return this.valid_sliding_moves(index, this.offsets['Q']);
 }
