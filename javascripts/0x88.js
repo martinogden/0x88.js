@@ -402,7 +402,7 @@ Board.prototype.valid_bishop_moves = function (index) {
  * @param {int} index of piece
  * @return {array} List of valid moves
  */
-Board.prototype.valid_queep_moves = function (index) {
+Board.prototype.valid_queen_moves = function (index) {
     return this.valid_sliding_moves(index, this.offsets['Q']);
 }
 
