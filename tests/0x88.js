@@ -136,3 +136,18 @@ test('Test Board::valid_bishop_moves', function() {
     equal(board.valid_bishop_moves(0x43).length, 13);
 });
 
+test('Test Board::is_attacked', function() {
+    var board = new Board('1k5r/8/6N1/2b2p2/3Qb2K/8/8/1R6 b - - 0 100');
+
+    equal(board.turn, board.BLACK);
+    // Ray sliding attack
+    equal(board.is_attacked(0x42), true);
+    // Rank sliding attack
+    equal(board.is_attacked(0x71), true);
+    // Pawn attack
+    equal(board.is_attacked(0x34), true);
+    // Knight attack
+    equal(board.is_attacked(0x77), true);
+});
+
+

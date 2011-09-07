@@ -13,7 +13,7 @@ var Board = function (fen) {
     this.B_000 = Math.pow(2, 1);
     this.W_00 = Math.pow(2, 2);
     this.W_000 = Math.pow(2, 3);
-    this.castling = this.B_00 | this.B_000 | this.W_00 | this.W_000
+    this.castling = this.B_00 | this.B_000 | this.W_00 | this.W_000;
     this.castling_map = {
       'K': this.W_00,
       'Q': this.W_000,
@@ -283,6 +283,45 @@ Board.prototype.hex_to_piece = function (hex) {
         return piece;
     }
     return null;
+}
+
+/**
+ * Check if a piece at a specified position can be taken by an opponents piece
+ *
+ * @param {int} index
+ * @return {bool}
+ */
+Board.prototype.is_attacked = function (index) {
+    var moves, pieces, piece, type
+      , opponent = this.turn ^ 0x80
+      , attacks = [
+            [this.valid_pawn_moves(index), ['p']],
+            [this.valid_knight_moves(index), ['n']],
+            [this.valid_rook_moves(index), ['r', 'q']],
+            [this.valid_bishop_moves(index), ['b', 'q']]
+        ];
+
+    // Loop through different possible attack types (queen, pawn etc.)
+    for (var i = 0, l = attacks.length; i < l; i++) {
+        moves = attacks[i][0];
+        pieces = attacks[i][1];
+        // Look for opponents pieces attacking this position
+        for (var j = 0, m = moves.length; j < m; j++) {
+            piece = this.piece_at(moves[j]);
+            // Check if attacking piece belongs to opponent
+            if (piece && this.get_color(piece) === opponent) {
+                for (var k = 0, n = pieces.length; k < n; k++) {
+                    type = this.pieces[pieces[k]];
+                    if ((piece & type) === type) {
+                        // We're under attack!
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    // If we got this far, we're not under attack
+    return false;
 }
 
 /**
