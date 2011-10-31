@@ -59,6 +59,7 @@ Undo move and return board to previous state using `undo` method
           A  B  C  D  E  F  G  H  
 
 Print board FEN representation and verify it is the same as the initial FEN string
+
     > board.fen();
     'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 2'
 
