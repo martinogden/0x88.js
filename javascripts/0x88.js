@@ -1,4 +1,40 @@
+/**
+ * Chess Board Representation with move generation and fen import / export.
+ *
+ * @param {str} FEN
+ * @todo Add Castling moves / history / game state / promotion
+ * @todo Make methods more 'restful'
+ * @todo Refactor into public / private methods
+ */
 var Board = function (fen) {
+
+    this.bitboards = {
+        K: new BitBoard(0x00000000, 0x00000010),
+        Q: new BitBoard(0x00000000, 0x00000008),
+        R: new BitBoard(0x00000000, 0x00000081),
+        B: new BitBoard(0x00000000, 0x00000024),
+        N: new BitBoard(0x00000000, 0x00000042),
+        P: new BitBoard(0x00000000, 0x0000FF00),
+        k: new BitBoard(0x04000000, 0x00000000),
+        q: new BitBoard(0x08000000, 0x00000000),
+        r: new BitBoard(0x81000000, 0x00000000),
+        b: new BitBoard(0x24000000, 0x00000000),
+        n: new BitBoard(0x42000000, 0x00000000),
+        p: new BitBoard(0x00FF0000, 0x00000000)
+    }
+    this.bitboards.WHITE = this.bitboards['K']
+                       .or(this.bitboards['Q'])
+                       .or(this.bitboards['R'])
+                       .or(this.bitboards['B'])
+                       .or(this.bitboards['N'])
+                       .or(this.bitboards['P']);
+
+    this.bitboards.BLACK = this.bitboards['k']
+                       .or(this.bitboards['q'])
+                       .or(this.bitboards['r'])
+                       .or(this.bitboards['b'])
+                       .or(this.bitboards['n'])
+                       .or(this.bitboards['p']);
 
     this.BLACK = 0x00;
     this.WHITE = 0x80;
@@ -25,12 +61,14 @@ var Board = function (fen) {
     this.half_moves = 0;
     this.full_moves = 0;
 
+    var rank_file = [-1, -16, 1, 16]
+      , diagonal = [-15, -17, 15, 17];
     this.offsets = {
-        'R': [-1, -16, 1, 16],
+        'R': rank_file,
         'N': [31, 33, 14, 18, -18, -14, -33, -31],
-        'B': [-15, -17, 15, 17],
-    }
-    this.offsets['Q'] = this.offsets['R'].concat(this.offsets['B']);
+        'B': diagonal,
+        'Q': rank_file.concat(diagonal),
+        'K': rank_file.concat(diagonal)}
 
     // Black pieces are lowercase, white pieces uppercase
     this.pieces = {
@@ -48,18 +86,169 @@ var Board = function (fen) {
         Q: 0xA0
     };
 
+    this.GAME_OVER = 0;
+    this.ACTIVE = 1;
+    this.CHECK_MATE = 2;
+    this.STALE_MATE = 4;
+    this.flags = {
+        EN_PASSANT: 0x00,
+        CASTLE: 0x02
+    };
+
+    this.history = [];
+
     if (fen) {
-        this.from_fen(fen);
+        this.load(fen);
     }
+    return this;
 };
+
+Board.prototype.perft = function (depth) {
+    // var start = +new Date()
+    var moves = this.moves()
+      , nodes = 0;
+
+    if (depth === 1) {
+        return moves.length;
+    }
+
+    for (var i = 0, l = moves.length; i < l; i++) {
+        this.do(moves[i]);
+        nodes += this.perft(depth - 1);
+        this.undo();
+    }
+    return nodes;
+    // return {'nodes': nodes, 'seconds': ((+new Date() - start) / 1000)};
+}
+
+Board.prototype.divide = function (depth) {
+    var results = {}, moves = this.moves();
+
+    for (var i = 0, l = moves.length; i < l; i++) {
+        this.do(moves[i]);
+        results[moves[i].san()] = this.perft(depth - 1);
+        this.undo();
+    }
+    return {'results': results, 'moves': i};
+}
+
+/**
+ * State of Game (Active or Game Over)
+ * @return {obj} State object
+ * @todo Add check mate detection
+ */
+Board.prototype.state = function () {
+    var code, reason, winner
+      , move_count = this.moves().length;
+
+    if (move_count) {
+        code = this.ACTIVE;
+    } else {
+        reason = true /*KING IN CHECK*/ ? this.CHECK_MATE : this.STALE_MATE;
+        code = this.GAME_OVER;
+        winner = this.turn ^ 0x80;
+    }
+    return {
+        code: code,
+        reason: reason,
+        winner: winner}
+}
+
+/**
+ * Push current board state into history
+ * @param {obj} Move object
+ * @return {int} - board state
+ */
+Board.prototype.do = function (move) {
+    if (this.state().code !== this.ACTIVE) {
+        throw new Error('Game Over');
+    }
+    this.history.push({
+        move: move,
+        turn: this.turn,
+        positions: [].concat(this.positions), // Quick copy
+        castling: this.castling,
+        en_passant: this.en_passant,
+        full_moves: this.full_moves,
+        half_moves: this.half_moves,
+    });
+
+    move.do(this);
+    if (this.turn === this.BLACK) {
+        this.full_moves++;
+    }
+    this.turn ^= 0x80;
+
+    return this.state();
+}
+
+Board.prototype.undo = function () {
+    if (! this.history.length) {
+        throw new Error('There are no previous states to rollback to');
+    }
+    var state = this.history.pop();
+    this.turn = state.turn;
+    this.positions = [].concat(state.positions); // Quick copy
+    this.castling = state.castling;
+    this.en_passant = state.en_passant;
+    this.full_moves = state.full_moves;
+    this.half_moves = state.half_moves;
+}
+
+/**
+ * 8x8 Two-dimensional array board representation
+ * @return {array}
+ */
+Board.prototype.array = function (flat) {
+    var board = []
+      , row
+      , index
+      , hex;
+
+    for (var rank = 7; rank >= 0; rank--) {
+        row = [];
+        for (var file = 0; file < 8; file++) {
+            index = this.get_index(rank, file);
+            hex = this.piece_at(index);
+            row.push(this.get_piece(hex));
+        }
+        board.push(row);
+    }
+    if (flat) {
+        return board.reduce(function (a, b) {
+            return a.concat(b);
+        });
+    }
+    return board;
+}
+
+/**
+ * ASCII Board representation
+ * @return {str}
+ */
+Board.prototype.toString = function () {
+    var border = '  + ------------------------ +'
+      , ascii = ['', [this.turn === this.BLACK ? '*' : ' ', border].join('')]
+      , board = this.array();
+
+    for (var i = 0; i < 8; i++) {
+        row = [8 - i, '|'].concat(board[i].map(function (position) {
+            return position ? position : '.';
+        }));
+        row.push('|');
+        ascii.push(row.join('  '));
+    }
+
+    ascii.push([this.turn === this.WHITE ? '*' : ' ', border].join(''),
+               '  ABCDEFGH\n'.split('').join('  '));
+    return ascii.join('\n');
+}
 
 /**
  * Reset board and load game in from FEN notation
- *
  * @param {str} FEN string
- * @todo Add en passant and castling rule parsing
  */
-Board.prototype.from_fen = function (fen) {
+Board.prototype.load = function (fen) {
     var parts = fen.split(' ')
       , board = parts[0].split('/').reverse()
       , castling = parts[2]
@@ -68,7 +257,6 @@ Board.prototype.from_fen = function (fen) {
 
     this.reset();
     // Basic validation
-    // var pattern = /[rnbqkbnrp1-8/]{8} [bw] ([kq]{1,4}|-) ([a-g][0-8]|-) [0-50] \d$/i
     if (!parts.length === 6 || !board.length === 8) {
         throw new Error('Not a valid femfile');
     }
@@ -95,6 +283,7 @@ Board.prototype.from_fen = function (fen) {
             this.castling = this.castling | this.castling_map[key];
         }
     }
+
     this.en_passant = en_passant === '-' ? false : this.get_index(en_passant);
     this.half_moves = parseInt(parts[4]);
     this.full_moves = parseInt(parts[5]);
@@ -102,75 +291,42 @@ Board.prototype.from_fen = function (fen) {
 
 /**
  * Return board / game representation as a fen string
- *
  * @return {str}
- * @todo Add castling, en passant, half & full moves
  */
-Board.prototype.to_fen = function() {
-    var fen = []
-      , row = []
-      , rows = []
-      , positions = this.positions.slice().reverse()
-      , empty = 0
-      , piece = null
-      , line_break;
+Board.prototype.fen = function() {
+    var empty, key, castling = '', rows = [];
 
-    for (var p = 8, l = positions.length; p < l; p++) {
-        piece = this.get_piece(positions[p]);
-        line_break = (p % 16 === 0 || p === 127);
+    this.array().forEach(function (row) {
+        empty = ! row[0] ? 1 : 0;
 
-        // Add blank squares count
-        if (!!empty && (piece || line_break)) {
-            if (p === 127) {
+        rows.push(row.reduce(function (a, b) {
+            a = a ? a : '';
+            if (b) {
+                if (empty) {
+                    a += empty.toString();
+                    empty = 0;
+                }
+                a += b;
+            } else {
                 empty++;
             }
-            row.push(empty);
-            empty = 0;
-        }
+            return a;
+        }).concat(empty ? empty.toString() : ''));
+    });
 
-        // Does current square contain a piece?
-        if (piece) {
-            row.push(piece);
-
-        // Empty cell - increment empty count
-        } else if (!line_break) {
-            empty++;
-        }
-
-        // Are we at EOL?
-        if (line_break || p === l - 1) {
-            // Row is reversed, flip it back around
-            rows.push(row.reverse().join(''));
-            row = [];
-            p += 7; // Ignore squares in second board
-        }
-    }
-    fen.push(rows.join('/'));
-
-    fen.push(this.turn === this.WHITE ? 'w' : 'b');
-    fen.push(this.fen_get_castling());
-    if (this.en_passant) {
-        fen.push(this.get_san(this.en_passant));
-    } else {
-        fen.push('-');
-    }
-    fen.push(this.half_moves, this.full_moves);
-    return fen.join(' ');
-}
-
-Board.prototype.fen_get_castling = function () {
-    var chars = []
-
-    if (!this.castling) {
-        return '-'
-    }
-    
-    for (var key in this.castling_map) {
+    for (key in this.castling_map) {
         if (this.castling & this.castling_map[key]) {
-            chars.push(key);
+            castling += key;
         }
     }
-    return chars.join('');
+
+    return [
+        rows.join('/'),
+        this.turn === this.WHITE ? 'w' : 'b',
+        castling || '-',
+        this.get_san(this.en_passant) || '-',
+        this.half_moves, this.full_moves
+    ].join(' ');
 }
 
 /**
@@ -191,15 +347,13 @@ Board.prototype.position_piece = function (piece, index) {
 
 /**
  * Get 0x88 position index of a row and column
- *
- * @param {int} row
- * @param {int} column
+ * @param {int} row (0 indexed)
+ * @param {int} column (0 indexed)
  * @return {int} [0-127]
  */
 Board.prototype.get_index = function (row, column) {
     var san; // standard algebraic notation
-
-    if (typeof row === "string") {
+    if (typeof row === 'string') {
         san = row.split('');
         row = san[1] - 1;
         column = 'abcdefgh'.indexOf(san[0].toLowerCase())
@@ -212,27 +366,28 @@ Board.prototype.get_index = function (row, column) {
  * @return {str} standard algebraic notation
  */
 Board.prototype.get_san = function (index) {
-    var file = (index & 7)
-      , rank = (index >> 4) + 1;
-
-    return 'abcdefgh'.charAt(file).concat(rank.toString());
+    var file = (index & 7), rank = (index >> 4) + 1;
+    if (this.has_index(index)) {
+        return 'abcdefgh'.charAt(file).concat(rank.toString());
+    }
 }
 
 /**
  * Get color of a piece
- *
  * @param {int} Hex representation of a piece
  * return {int} WHITE or BLACK
  */
 Board.prototype.get_color = function (piece) {
-    return piece & 0x80;
+    if (piece) {
+        return piece & 0x80;
+    }
+    return undefined;
 }
 
 /**
  * Get piece name from it's hex represention
- *
  * @param {int}
- * @return {str|void}
+ * @return {str|null}
  */
 Board.prototype.get_piece = function (code) {
     var key, piece;
@@ -242,7 +397,7 @@ Board.prototype.get_piece = function (code) {
             return key;
         }
     }
-    return null;
+    return undefined;
 }
 
 /**
@@ -254,131 +409,150 @@ Board.prototype.has_index = function (index) {
 }
 
 /**
- * @param {int} Piece 0x88 position
+ * @param {int|str} Piece 0x88 / san position
  * @return {int} Piece hex representation
  */
 Board.prototype.piece_at = function (index) {
-    if (this.has_index(index)) {
-        return this.positions[index] || null;
+    if (typeof index === 'string') {
+        index = this.get_index(index);
     }
-    return null;
+    return this.positions[index];
 }
 
 /**
- * Get string representation of a piece
- *
- * @param {int} Hex representation of a piece
- * @return {str|void}
- */
-Board.prototype.hex_to_piece = function (hex) {
-    // Convert hex to a power of two <= 32
-    var key = hex & 0x3F
-      , piece = {'1': 'P', '2': 'N', '4': 'K',
-                 '8': 'B', '16': 'R', '32': 'Q'}[key.toString()];
-
-    if (!piece) { 
-        if (hex <= 0x20) {
-            piece = piece.toLowerCase();
-        }
-        return piece;
-    }
-    return null;
-}
-
-/**
- * Check if a piece at a specified position can be taken by an opponents piece
- *
- * @param {int} index
+ * Check if a piece at specified position can be taken by an opponents piece
+ * @param {int|string} index
+ * @param {int} (optional) column - if specified, index and column will be
+ *     treated at row and column respectfully
  * @return {bool}
+ * @todo refactor index code/ move to another function
  */
-Board.prototype.is_attacked = function (index) {
-    var moves, pieces, piece, type
-      , opponent = this.turn ^ 0x80
-      , attacks = [
-            [this.valid_pawn_moves(index), ['p']],
-            [this.valid_knight_moves(index), ['n']],
-            [this.valid_rook_moves(index), ['r', 'q']],
-            [this.valid_bishop_moves(index), ['b', 'q']]
-        ];
+Board.prototype.is_attacked = function (index, column) {
+    var index, piece, moves;
 
-    // Loop through different possible attack types (queen, pawn etc.)
-    for (var i = 0, l = attacks.length; i < l; i++) {
-        moves = attacks[i][0];
-        pieces = attacks[i][1];
-        // Look for opponents pieces attacking this position
-        for (var j = 0, m = moves.length; j < m; j++) {
-            piece = this.piece_at(moves[j]);
-            // Check if attacking piece belongs to opponent
-            if (piece && this.get_color(piece) === opponent) {
-                for (var k = 0, n = pieces.length; k < n; k++) {
-                    type = this.pieces[pieces[k]];
-                    if ((piece & type) === type) {
-                        // We're under attack!
-                        return true;
-                    }
-                }
+    if (typeof index === 'string') {
+        index = this.get_index(index);
+    } else if (typeof index === 'number' && typeof column === 'number') {
+        index = this.get_index(index, column);
+    }
+
+    piece = this.piece_at(index);
+    moves = this.moves(this.get_color(piece) ^ 0x80, true)
+    if (! moves) {
+        return false;
+    }
+    return moves.some(function (move) {
+        return  move.to === index;
+    });
+}
+
+/**
+ * Generate list of valid moves
+ * @param {int} (this.WHITE or this.BLACK) player to generate moves for
+ * @param {bool} Psuedo-legal moves or legal (king not in check) moves
+ * @return {array} - List of Move objects
+ */
+Board.prototype.moves = function (player, psuedo_legal) {
+    var code, piece, generator, king, in_check
+      , board = this
+      , moves = [];
+
+    player = player !== undefined ? player : this.turn;
+    for (var i = 0, l = this.positions.length; i < l; i++) {
+        // Check square is on the board
+        if (! this.has_index(i)) {
+            i += 7;
+            continue;
+        }
+
+        code = this.positions[i];
+        // Check square contains current player's piece
+        if (code && this.get_color(code) === player) {
+            piece = this.get_piece(code).toUpperCase();
+            // Save king position for check test
+            if (piece === 'K') {
+                king = i;
             }
+            moves = moves.concat(this.piece_moves(piece, i, player));
         }
     }
-    // If we got this far, we're not under attack
-    return false;
+
+    if (psuedo_legal === true || moves.length < 1) {
+        return moves;
+    }
+
+    // Legal moves (check for check!)
+    return moves.filter(function (move) {
+        move.do(board);
+        if ((move.piece & 0x3F) === board.pieces['k']) {
+            in_check = board.is_attacked(move.to);
+        } else {
+            in_check = board.is_attacked(king);
+        }
+        move.undo(board);
+
+        if (! in_check) {
+            return move;
+        }
+    });
+}
+
+/**
+ * @param {str}
+ * @param {int}
+ * @param {int}
+ */
+Board.prototype.piece_moves = function (piece, index, player) {
+    var single = (piece === 'K' || piece === 'N')
+      , offset = this.offsets[piece];
+
+    if (piece === 'P') {
+        return this.pawn_moves(index, player);
+    }
+    return this.move_generator(index, offset, player, single)
 }
 
 /**
  * @param {int} index of piece
+ * @param {int} (this.WHITE or this.BLACK)
  * @return {array} List of valid moves
- * @todo Add promotion and en passant rules
+ * @todo Add promotion rules
  */
-Board.prototype.valid_pawn_moves = function (index) {
-    // Are we moving up or down the board (white or black)
-    var direction = this.piece_at(index) & 0x80 ? 16 : -16
+Board.prototype.pawn_moves = function (index, player) {
+    var to, piece, flag
+      , direction = player === this.WHITE ? 16 : -16
       , forward = index + direction
       , moves = []
-      , _moves
-      , to
-      , piece;
+      , board = this
+      , move = function (to) {
+            if (board.piece_at(to)) {
+                return false;
+            }
+            if (board.has_index(to)) {
+                moves.push(new Move(board.piece_at(index), index, to, flag));
+                return true;
+            }
+        };
 
-    // Move a one or two sqaures forward if both are vacant and valid
-    _moves = [forward, forward + direction];
-    for (var i = 0, l = _moves.length; i < l; i++) {
-        to = _moves[i];
-        piece = this.piece_at(to);
-        if (piece) {
-            break;
-        }
-        if (this.has_index(to)) {
-            moves.push(to);
+    // Move forward single row
+    if (move(forward)) {
+        // Move two rows forward if pawn in in starting position
+        if (! this.has_index(index - (direction * 2))) {
+            move(forward + direction);
         }
     }
 
     // Take an opposition piece diagonally
-    _moves = [forward - 1, forward + 1];
-    for (var i = 0, l = _moves.length; i < l; i++) {
-        to = _moves[i];
+    for (var i = 0; i < 2; i++) {
+        to = [forward - 1, forward + 1][i];
         piece = this.piece_at(to);
-        if (piece && this.get_color(piece) === (this.turn ^ 0x80)) {
-            moves.push(to);
-        }
-    }
-    return moves;
-}
-
-/**
- * @param {int} index of piece
- * @return {array} List of valid moves
- */
-Board.prototype.valid_knight_moves = function (index) {
-    var offsets = this.offsets['N']
-      , moves = []
-      , piece
-      , to;
-
-    for (var i = 0, l = offsets.length; i < l; i++) {
-        to = index + offsets[i];
-        if (this.has_index(to)) {
-            piece = this.piece_at(to);
-           if (this.get_color(piece) === (this.turn ^ 0x80)) {
-                moves.push(to);
+        if (piece && this.get_color(piece) === (player ^ 0x80)) {
+            moves.push(new Move(this.piece_at(index), index, to));
+        // Check for possible en passant moves
+        } else if (this.en_passant) {
+            if (to - direction === this.en_passant) {
+                flag = this.flags.EN_PASSANT;
+                moves.push(new Move(this.piece_at(index), index, to, flag));
             }
         }
     }
@@ -386,62 +560,258 @@ Board.prototype.valid_knight_moves = function (index) {
 }
 
 /**
- * Generate a list of positions where a sliding piece can move to.
- *
+ * Generate a list of for a piece using an offset.
  *  - Includes positions where opponents piece is taken
  *  - Doesn't include positions containing players own pieces
  *  - Doesn't consider check situations
- *
  * @param {int} index of piece
  * @param {array} list of offsets for move generation, i.e. directions
+ * @param {int} (this.WHITE or this.BLACK)
+ * @param {bool} single (default false) repeat offset?
  * @return {array} List of valid moves
  */
-Board.prototype.valid_sliding_moves = function (index, offsets) {
-    var moves = []
-      , direction
-      , piece
-      , to;
+Board.prototype.move_generator = function (index, offsets, player, single) {
+    var direction, piece, to
+      , moving_piece = this.piece_at(index)
+      , moves = [];
 
-    // console.log(this.to_fen());
     for (var i = 0, l = offsets.length; i < l; i++) {
         direction = offsets[i];
         to = index + direction;
         while (this.has_index(to)) {
             piece = this.piece_at(to);
-            if (piece) {
-                if (this.get_color(piece) === (this.turn ^ 0x80)) {
-                    moves.push(to);
-                }
+            if (this.get_color(piece) === player) {
                 break;
             }
-            moves.push(to);
+            moves.push(new Move(moving_piece, index, to));
             to += direction;
+            if (piece || single) {
+                break;
+            }
         }
     }
     return moves;
 }
 
-/**
- * @param {int} index of piece
- * @return {array} List of valid moves
- */
-Board.prototype.valid_rook_moves = function (index) {
-    return this.valid_sliding_moves(index, this.offsets['R']);
+var Move = function (piece, from, to, flags) {
+    // Private attributes
+    var to, en_passant, is_done = false;
+
+    // Public attributes
+    this.piece = piece;
+    this.from = from;
+    this.to = to;
+    this.flags = flags
+
+    this.do = function (board) {
+        if (! is_done) {
+            to = board.piece_at(to);
+            board.positions[this.to] = board.positions[this.from];
+            board.positions[from] = undefined;
+
+            if (this.flag === board.flags.EN_PASSANT) {
+                en_passant = board.en_passant;
+                board.positions[en_passant] = undefined;
+            }
+            is_done = true;
+        }
+    }
+
+    this.undo = function (board) {
+        if (is_done) {
+            board.positions[this.from] = board.positions[this.to];
+            board.positions[this.to] = to;
+
+            if (en_passant) {
+                board.positions[en_passant] = board.get_color(piece) ^ 0x80;
+            }
+            is_done = false;
+        }
+    }
+
+    this.san = function () {
+        var board = new Board();
+        return [board.get_san(this.from), board.get_san(this.to)].join('');
+    }
+
+    return this;
 }
 
 /**
- * @param {int} index of piece
- * @return {array} List of valid moves
+ * Psuedo 64-bit integer chess board representation
+ *
+ * Due to JavaScript's inability to accurately represent 64-bit integers,
+ * (max 53-bit) we'll seperate the integer into two 32-bit halves.
+ *
+ * @param {int} First 32-bit integer (e.g. 0x42000000 [White Knights])
+ * @param {int} Second 32-bit integer (e.g. 0x00000042 [Black Knights])
+ * @return {obj} BitBoard
  */
-Board.prototype.valid_bishop_moves = function (index) {
-    return this.valid_sliding_moves(index, this.offsets['B']);
-}
+var BitBoard = function (a, b) {
 
-/**
- * @param {int} index of piece
- * @return {array} List of valid moves
- */
-Board.prototype.valid_queen_moves = function (index) {
-    return this.valid_sliding_moves(index, this.offsets['Q']);
+    this.a = a || 0;
+    this.b = b || 0;
+
+    /**
+     * Bitwise AND two bitboards
+     *
+     * @param {obj} BitBoard
+     * @return {obj} BitBoard
+     */
+    this.and = function (bitboard) {
+        return new BitBoard(this.a & bitboard.a, this.b & bitboard.b);
+    }
+
+    /**
+     * Bitwise OR two bitboards
+     *
+     * @param {obj} BitBoard
+     * @return {obj} BitBoard
+     */
+    this.or = function (bitboard) {
+        return new BitBoard(this.a | bitboard.a, this.b | bitboard.b);
+    }
+
+    /**
+     * Bitwise XOR two bitboards
+     *
+     * @param {obj} BitBoard
+     * @return {obj} BitBoard
+     */
+    this.xor = function (bitboard) {
+        return new BitBoard(this.a ^ bitboard.a, this.b ^ bitboard.b);
+    }
+
+    /**
+     * Bitwise NOT this bitboard
+     *
+     * @return {obj} BitBoard
+     */
+    this.not = function () {
+        return new BitBoard(~this.a, ~this.b);
+    }
+
+    this.shift_left = function (n) {
+        return new BitBoard(this.a << n, this.b << n);
+    }
+
+    this.shift_right = function (n) {
+        return new BitBoard(this.a >>> n, this.b >>> n);
+    }
+
+    this.is_zero = function () {
+        return this.a === 0 && this.b === 0;
+    }
+
+    /**
+     * Flip board vertically
+     */
+    this.flip = function () {
+        return new BitBoard(_32bitflip(this.b), _32bitflip(this.a));
+    }
+
+    /**
+     * Mirror board horizontally
+     */
+    this.mirror = function () {
+        return new BitBoard(_32bitmirror(this.a), _32bitmirror(this.b));
+    }
+
+    /**
+     * Set bit to 1
+     * @param {int}
+     * @return {obj} BitBoard
+     */
+    this.set = function (bit) {
+        var board = (bit < 32) ? this.a : this.b;
+        board |= 1 << bit;
+
+        return this;
+    }
+
+    /**
+     * Set bit to 0
+     * @param {int}
+     * @return {obj} BitBoard
+     */
+    this.clear = function (bit) {
+        var board = (bit < 32) ? this.a : this.b;
+        board &= (this.a & (1 << bit));
+
+        return this;
+    }
+
+    /**
+     * Toggle bit 0 - 1 and vice-versa
+     * @param {int}
+     * @return {obj} BitBoard
+     */
+    this.toggle = function (bit) {
+        var board = (bit < 32) ? this.a : this.b;
+        board ^= (1 << bit);
+
+        return this;
+    }
+
+    /**
+     * Draw a 8x8 board representation of BitBoard
+     * @return {str}
+     */
+    this.toString = function () {
+        return draw(this.a) + draw(this.b);
+    }
+
+    /* Private methods */
+
+    /**
+     * Flip 32-bit Bitboard 'half' vertically
+     *
+     * @param {int} Bitboard a or b
+     * @return {int} Flipped Bitboard 'half'
+     */
+    function _32bitflip (x) {
+        var mask_1 = 0x00FF00FF;
+            mask_2 = 0x0000FFFF;
+        x = ((x >>  8) & mask_1) | ((x & mask_1) <<  8);
+        x = ((x >> 16) & mask_2) | ((x & mask_2) << 16);
+        x = (x >> 32) | (x << 32);
+        return x;
+    }
+
+    /**
+     * Mirror 32-bit Bitboard 'half' horizontally
+     *
+     * @param {int} Bitboard a or b
+     * @return {int} mirrored Bitboard 'half'
+     */
+    function _32bitmirror (x) {
+        var mask_1 = 0x55555555,
+            mask_2 = 0x33333333,
+            mask_4 = 0x0F0F0F0F;
+        x = ((x >> 1) & mask_1) +  2 * (x & mask_1);
+        x = ((x >> 2) & mask_2) +  4 * (x & mask_2);
+        x = ((x >> 4) & mask_4) + 16 * (x & mask_4);
+        return x;
+    }
+
+    /**
+     * @param {int} 32-bit int to draw
+     * @return {str}
+     */
+    function draw (x) {
+        var bit, board = [];
+
+        for (var i = 0; i < 32; i++) {
+            bit = (x & Math.pow(2, i)) ? 1 : 0;
+            if (i % 8 === 0 && i) {
+                bit += '\n';
+            }
+            board.unshift(bit);
+        }
+        board.unshift('\n');
+        return board.join(' ');
+    }
+
+    return this;
 }
 
