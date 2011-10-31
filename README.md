@@ -12,16 +12,23 @@
 Basic usage
 -----------
 
+### Instantiate board from a FEN string
+
     > var fen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 2'
     >   , board = new Board(fen);
-    
-    // How many moves are possible for current 
+
+How many legal moves can the player currently make?
+
     > var moves = board.moves();
     > moves.length
     30
-    
-    // Let's make a move (we'll choos the first move in the moves array)
-    > move moves[0]
+
+
+### Make a move
+
+Let's choose the first move in the moves array
+
+    > var move = moves[0]
     > board.do(move);
        + ------------------------ +
     8  |  r  n  b  q  k  b  n  r  |
@@ -34,8 +41,9 @@ Basic usage
     1  |  R  .  B  Q  K  B  N  R  |
     *  + ------------------------ +
           A  B  C  D  E  F  G  H  
-    
-    // Maybe not the best move - let's undo it
+
+Undo move and return board to previous state using `undo` method
+
     > board.undo();
     > board.toString();
        + ------------------------ +
@@ -49,7 +57,8 @@ Basic usage
     1  |  R  N  B  Q  K  B  N  R  |
     *  + ------------------------ +
           A  B  C  D  E  F  G  H  
-    
+
+Print board FEN representation and verify it is the same as the initial FEN string
     > board.fen();
     'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 2'
 
@@ -64,7 +73,9 @@ Tests
 
 ### Performance Tests (perft & divide)
 
-    // count number of move possible from this position at depth `n`
+Count number of move possible from this position at depth `n`
+
+
     > var fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     > board.perft(1);
     20
@@ -74,7 +85,6 @@ Tests
     8902
     > board.perft(4);
     197281
-    
 
 
 ### Notes
