@@ -1,3 +1,4 @@
+(function() {
 /**
  * Chess Board Representation with move generation and fen import / export.
  *
@@ -815,3 +816,9 @@ var BitBoard = function (a, b) {
     return this;
 }
 
+    if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+        module.exports = Board;
+    } else {
+        window.Board = Board;
+    }
+})();
