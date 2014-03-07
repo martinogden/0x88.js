@@ -817,7 +817,7 @@ var BitBoard = function (a, b) {
 }
 
     if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-        module.exports = Board;
+        module.exports.Board = Board;
     } else {
         window.Board = Board;
     }
