@@ -770,7 +770,7 @@ var BitBoard = function (a, b) {
      * @return {int} Flipped Bitboard 'half'
      */
     function _32bitflip (x) {
-        var mask_1 = 0x00FF00FF;
+        var mask_1 = 0x00FF00FF,
             mask_2 = 0x0000FFFF;
         x = ((x >>  8) & mask_1) | ((x & mask_1) <<  8);
         x = ((x >> 16) & mask_2) | ((x & mask_2) << 16);
@@ -814,4 +814,10 @@ var BitBoard = function (a, b) {
 
     return this;
 }
+
+module.exports = {
+    Board: Board,
+    Move: Move,
+    BitBoard: BitBoard
+};
 
